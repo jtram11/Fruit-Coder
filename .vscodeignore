@@ -1,0 +1,14 @@
+.vscode/
+src/
+node_modules/
+.gitignore
+tsconfig.json
+apple-llm-bridge/Sources/
+apple-llm-bridge/Package.swift
+apple-llm-bridge/.build/artifacts/
+apple-llm-bridge/.build/checkouts/
+apple-llm-bridge/.build/repositories/
+**/*.map
+**/*.ts
+!out/**/*.js
+!out/**/*.d.ts

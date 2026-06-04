@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{{CSS_URI}}" rel="stylesheet">
+    <title>Apple LLM Chat</title>
+</head>
+<body>
+    <div id="chat-container">
+        <div class="info-header">
+            <span> On-Device Foundation Model</span>
+            <div>
+                <span class="status-indicator"></span>
+                <span>Active</span>
+            </div>
+        </div>
+
+        <div id="messages-list">
+            <!-- Initial Greeting -->
+            <div class="message-bubble assistant" style="opacity: 1;">
+                <span class="message-sender">Assistant</span>
+                <div class="message-content">
+                    Hello! I'm your local Apple Intelligence code assistant. How can I help you write or fix your code today?
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing Loading Indicator -->
+        <div id="typing-indicator">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+        </div>
+
+        <!-- Input Area controls -->
+        <div id="input-form">
+            <div class="textarea-wrapper">
+                <textarea id="prompt-input" placeholder="Ask local Apple LLM... (Cmd+Enter to send)"></textarea>
+                <button id="send-button" class="send-btn" title="Send Message">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script tags containing CSP nonce -->
+    <script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
+</body>
+</html>

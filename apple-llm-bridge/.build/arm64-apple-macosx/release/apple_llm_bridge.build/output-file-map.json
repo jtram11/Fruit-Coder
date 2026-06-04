@@ -1,0 +1,37 @@
+{
+  "": {
+    "dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/apple_llm_bridge.d",
+    "object": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/apple_llm_bridge.o",
+    "swift-dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/primary.swiftdeps"
+  },
+  "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/Sources/HTTPServer.swift": {
+    "object": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/HTTPServer.swift.o",
+    "swiftmodule": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/HTTPServer~partial.swiftmodule",
+    "swift-dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/HTTPServer.swiftdeps",
+    "diagnostics": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/HTTPServer.dia"
+  },
+  "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/Sources/LLMService.swift": {
+    "object": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/LLMService.swift.o",
+    "swiftmodule": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/LLMService~partial.swiftmodule",
+    "swift-dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/LLMService.swiftdeps",
+    "diagnostics": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/LLMService.dia"
+  },
+  "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/Sources/Models.swift": {
+    "object": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Models.swift.o",
+    "swiftmodule": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Models.swiftdeps",
+    "diagnostics": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Models.dia"
+  },
+  "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/Sources/Security.swift": {
+    "object": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Security.swift.o",
+    "swiftmodule": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Security~partial.swiftmodule",
+    "swift-dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Security.swiftdeps",
+    "diagnostics": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/Security.dia"
+  },
+  "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/Sources/main.swift": {
+    "object": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/main.swift.o",
+    "swiftmodule": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/main.swiftdeps",
+    "diagnostics": "/Users/justintram/.gemini/antigravity/scratch/apple-code-assist/apple-llm-bridge/.build/arm64-apple-macosx/release/apple_llm_bridge.build/main.dia"
+  }
+}

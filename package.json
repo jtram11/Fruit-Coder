@@ -1,0 +1,97 @@
+{
+  "name": "apple-code-assist",
+  "displayName": "Apple Intelligence Code Assistant",
+  "description": "AI code assistant powered by Apple's on-device Foundation Models",
+  "version": "0.1.0",
+  "publisher": "apple-code-assist",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "appleCodeAssist.openChat",
+        "title": "Open AI Chat",
+        "category": "Apple Code Assist",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "appleCodeAssist.generateCode",
+        "title": "Generate Code from Prompt",
+        "category": "Apple Code Assist",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "appleCodeAssist.analyzeError",
+        "title": "Analyze Error",
+        "category": "Apple Code Assist",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "appleCodeAssist.startBridge",
+        "title": "Start Bridge Server",
+        "category": "Apple Code Assist",
+        "icon": "$(play)"
+      },
+      {
+        "command": "appleCodeAssist.stopBridge",
+        "title": "Stop Bridge Server",
+        "category": "Apple Code Assist",
+        "icon": "$(debug-stop)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "appleCodeAssist.generateCode",
+        "key": "cmd+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "appleCodeAssist.analyzeError",
+        "key": "cmd+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorTextFocus"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "apple-code-assist",
+          "title": "AI Assistant",
+          "icon": "$(hubot)"
+        }
+      ]
+    },
+    "views": {
+      "apple-code-assist": [
+        {
+          "type": "webview",
+          "id": "appleCodeAssist.chatView",
+          "name": "AI Chat",
+          "visibility": "visible"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.93.0",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "@vscode/vsce": "^2.22.0"
+  }
+}
