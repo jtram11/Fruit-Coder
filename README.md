@@ -80,3 +80,4 @@ You can customize the extension via your user `settings.json`:
 MIT License.
 # Fruit-Coder
 # Fruit-Coder
+# Fruit-Coder
