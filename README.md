@@ -1,4 +1,4 @@
-# Apple Intelligence Code Assistant for VS Code / VSCodium
+# Fruit Coder | Apple Intelligence Code Assistant for VS Code / VSCodium
 
 A fully offline, local AI-powered code assistant extension for VS Code and VSCodium. This extension utilizes Apple's on-device ~3B parameter foundational LLM through the `FoundationModels` framework.
 
