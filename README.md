@@ -4,6 +4,8 @@ A fully offline, local AI-powered code assistant extension for VS Code and VSCod
 
 No data ever leaves your device — all model inference and operations run locally on your Mac.
 
+**Caution**: I vibe-coded this in an afternoon using Antigravity. This is an unrefined user experience.
+
 ---
 
 ## Key Features
@@ -78,6 +80,4 @@ You can customize the extension via your user `settings.json`:
 ## License
 
 MIT License.
-# Fruit-Coder
-# Fruit-Coder
-# Fruit-Coder
+
