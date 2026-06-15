@@ -289,3 +289,45 @@ textarea:focus {
         transform: translateY(-6px);
     }
 }
+
+/* =============================================================================
+   Structured Response Sections
+   ============================================================================= */
+
+/* Diagnosis — one-liner at the top identifying what was asked / what was wrong */
+.response-diagnosis {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground, #858585);
+    font-style: italic;
+    margin: 0 0 10px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Explanation — how the solution works, shown below the code block */
+.response-explanation {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--vscode-foreground, #cccccc);
+    opacity: 0.85;
+}
+
+.response-explanation strong {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #a855f7;
+    margin-bottom: 6px;
+}
+
+.response-explanation p {
+    margin: 0 0 6px 0;
+}
+
+.response-explanation p:last-child {
+    margin-bottom: 0;
+}

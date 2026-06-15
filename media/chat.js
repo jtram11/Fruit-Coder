@@ -13,6 +13,16 @@
     let currentBotBubble = null;
     let currentBotContent = '';
 
+    // Shared HTML-escape utility used by both the structured renderer and formatMarkdown.
+    function escapeHtml(unsafe) {
+        return String(unsafe)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     // Focus textarea on start
     promptInput.focus();
 
@@ -77,27 +87,33 @@
                 currentBotBubble = null;
                 break;
 
-            case 'streamChunk':
+            case 'streamChunk': {
                 hideTypingIndicator();
-                currentBotContent += message.text;
-                
                 if (!currentBotBubble) {
-                    currentBotBubble = appendMessageBubble('assistant', currentBotContent);
-                } else {
+                    currentBotBubble = appendMessageBubble('assistant', '');
+                }
+                currentBotContent += message.chunk;
+                
+                const contentBox = currentBotBubble.querySelector('.message-content');
+                contentBox.innerHTML = formatMarkdown(currentBotContent);
+                attachCodeBlockListeners(contentBox);
+                scrollToBottom();
+                break;
+            }
+
+            case 'streamEnd': {
+                hideTypingIndicator();
+                if (currentBotBubble) {
                     const contentBox = currentBotBubble.querySelector('.message-content');
                     contentBox.innerHTML = formatMarkdown(currentBotContent);
                     attachCodeBlockListeners(contentBox);
                 }
+                currentBotBubble = null;
                 scrollToBottom();
                 break;
+            }
 
-            case 'streamEnd':
-                hideTypingIndicator();
-                currentBotBubble = null;
-                currentBotContent = '';
-                break;
-
-            case 'showError':
+            case 'showError': {
                 hideTypingIndicator();
                 const errorBox = document.createElement('div');
                 errorBox.className = 'error-bubble';
@@ -105,6 +121,7 @@
                 messagesList.appendChild(errorBox);
                 scrollToBottom();
                 break;
+            }
         }
     });
 
@@ -121,18 +138,33 @@
         messagesList.scrollTop = messagesList.scrollHeight;
     }
 
-    /**
-     * Attaches "Apply Code" listeners to all generated buttons.
-     */
     function attachCodeBlockListeners(container) {
-        const buttons = container.querySelectorAll('.apply-code-btn');
-        buttons.forEach(btn => {
+        const applyButtons = container.querySelectorAll('.apply-code-btn');
+        applyButtons.forEach(btn => {
             btn.addEventListener('click', () => {
-                const code = btn.getAttribute('data-code');
-                vscode.postMessage({
-                    type: 'applyCode',
-                    code: decodeURIComponent(code)
-                });
+                const id = btn.getAttribute('data-id');
+                const code = window._codeBlocks ? window._codeBlocks[id] : '';
+                if (code) {
+                    vscode.postMessage({
+                        type: 'applyCode',
+                        code: code
+                    });
+                }
+            });
+        });
+
+        const copyButtons = container.querySelectorAll('.copy-code-btn');
+        copyButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const code = window._codeBlocks ? window._codeBlocks[id] : '';
+                if (code) {
+                    navigator.clipboard.writeText(code).then(() => {
+                        const originalText = btn.textContent;
+                        btn.textContent = 'Copied!';
+                        setTimeout(() => btn.textContent = originalText, 2000);
+                    });
+                }
             });
         });
     }
@@ -140,61 +172,79 @@
     /**
      * Simple parser to format markdown backticks and code blocks in webview.
      * Escapes raw HTML inside blocks to protect against XSS injections.
+     * Used for legacy/fallback rendering paths; primary chat responses use
+     * the structured renderer above.
      */
     function formatMarkdown(text) {
-        // Escapes text safely to prevent XSS outside of backticks
-        function escapeHtml(unsafe) {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
+        // 1. Extract code blocks and replace with placeholders
+        // Stops matching if it hits a closing ``` OR if it hits a new section header (### )
+        const codeBlockRegex = /```(.*)\r?\n([\s\S]*?)(?:```|(?=\n### )|$)/g;
+        let placeholderId = 0;
+        const replacements = {};
 
-        // Match Code blocks: ```language ... ```
-        const codeBlockRegex = /```(\w*)\n([\s\S]*?)(?:```|$)/g;
-        let formatted = text;
-        let match;
-        
-        const replacements = [];
+        // Store raw code for the buttons
+        window._codeBlocks = window._codeBlocks || {};
 
-        while ((match = codeBlockRegex.exec(text)) !== null) {
-            const lang = match[1] || 'code';
-            const code = match[2];
+        let processedText = text.replace(codeBlockRegex, (raw, langMatch, code) => {
             const escapedCode = escapeHtml(code);
-            const encodedCode = encodeURIComponent(code);
-
+            const blockId = `__CODE_BLOCK_${placeholderId++}__`;
+            
+            let lang = (langMatch || '').trim() || 'code';
+            
             const replacementHtml = `
-                <pre><button class="apply-code-btn" data-code="${encodedCode}">Apply to File</button><code>${escapedCode}</code></pre>
-            `;
-            replacements.push({
-                raw: match[0],
-                html: replacementHtml
-            });
-        }
-
-        // Replace each block placeholder
-        for (const rep of replacements) {
-            formatted = formatted.replace(rep.raw, rep.html);
-        }
-
-        // Format inline code: `code`
-        formatted = formatted.replace(/`([^`]+)`/g, (m, inlineCode) => {
-            return `<code>${escapeHtml(inlineCode)}</code>`;
+                <div class="code-block-wrapper" style="margin: 10px 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--vscode-editorGroup-border);">
+                    <div class="code-block-header" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; background: var(--vscode-editor-inactiveSelectionBackground); font-size: 11px;">
+                        <span class="code-lang" style="color: var(--vscode-editor-foreground); text-transform: uppercase;">${escapeHtml(lang)}</span>
+                        <div class="code-actions" style="display: flex; gap: 6px;">
+                            <button class="copy-code-btn" data-id="${blockId}" style="background: none; border: 1px solid var(--vscode-button-background); color: var(--vscode-button-background); border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;">Copy</button>
+                            <button class="apply-code-btn" data-id="${blockId}" style="background: var(--vscode-button-background); border: none; color: var(--vscode-button-foreground); border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;">Apply to File</button>
+                        </div>
+                    </div>
+                    <pre style="margin: 0; padding: 10px; overflow-x: auto; background: var(--vscode-editor-background);"><code class="language-${escapeHtml(lang)}">${escapedCode}</code></pre>
+                </div>`;
+            
+            window._codeBlocks[blockId] = code;
+            replacements[blockId] = replacementHtml;
+            return `\n${blockId}\n`;
         });
 
-        // Format paragraphs / linebreaks nicely
-        // Skip formatting lines containing pre/code structures
-        const lines = formatted.split('\n');
+        // 2. Format lines
+        const lines = processedText.split('\n');
         const formattedLines = lines.map(line => {
-            if (line.includes('<pre>') || line.includes('</pre>') || line.includes('<code>') || line.includes('</code>') || line.includes('<li>')) {
-                return line;
+            const trimmed = line.trim();
+            if (!trimmed) return '';
+            
+            if (trimmed.startsWith('__CODE_BLOCK_') && replacements[trimmed]) {
+                return replacements[trimmed];
             }
-            if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-                return `<li>${line.trim().substring(2)}</li>`;
+
+            // Escape HTML in the line first
+            let safeLine = escapeHtml(line);
+
+            // Markdown: Headers
+            if (safeLine.trim().startsWith('### ')) {
+                return `<h3 style="margin-top: 15px; margin-bottom: 5px;">${safeLine.trim().substring(4)}</h3>`;
             }
-            return line ? `<p>${line}</p>` : '';
+            if (safeLine.trim().startsWith('## ')) {
+                return `<h2 style="margin-top: 15px; margin-bottom: 5px;">${safeLine.trim().substring(3)}</h2>`;
+            }
+            if (safeLine.trim().startsWith('# ')) {
+                return `<h1 style="margin-top: 15px; margin-bottom: 5px;">${safeLine.trim().substring(2)}</h1>`;
+            }
+
+            // Markdown: Lists
+            if (safeLine.trim().startsWith('- ') || safeLine.trim().startsWith('* ')) {
+                let liContent = safeLine.trim().substring(2);
+                liContent = liContent.replace(/`([^`]+)`/g, '<code style="background: var(--vscode-textCodeBlock-background); padding: 2px 4px; border-radius: 3px;">$1</code>');
+                liContent = liContent.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+                return `<li>${liContent}</li>`;
+            }
+
+            // Markdown: Inline code & bold in paragraphs
+            safeLine = safeLine.replace(/`([^`]+)`/g, '<code style="background: var(--vscode-textCodeBlock-background); padding: 2px 4px; border-radius: 3px;">$1</code>');
+            safeLine = safeLine.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+
+            return `<p>${safeLine}</p>`;
         });
 
         return formattedLines.join('');

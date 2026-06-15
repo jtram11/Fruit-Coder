@@ -39,6 +39,9 @@ const http = __importStar(require("http"));
 const path = __importStar(require("path"));
 const os = __importStar(require("os"));
 const security_1 = require("./security");
+// Apple's on-device Foundation Model can take longer than a hosted API for
+// complex prompts. 10 minutes gives ample headroom without hanging forever.
+const REQUEST_TIMEOUT_MS = 600000;
 class BridgeClient {
     constructor(port = 19847) {
         this.sessionKey = '';
@@ -75,6 +78,21 @@ class BridgeClient {
         }
     }
     /**
+     * Resets the Swift-side LanguageModelSession. Call when the user clears chat
+     * so the next request starts with a clean conversation context.
+     */
+    async resetSession() {
+        try {
+            const payload = JSON.stringify({ reset: true });
+            const signature = (0, security_1.signRequest)(payload, this.sessionKey);
+            await this.makeRequest('POST', '/api/session/reset', payload);
+        }
+        catch {
+            // Non-critical — if the bridge is down the session will
+            // auto-reset when it reconnects.
+        }
+    }
+    /**
      * Sends a generation request and returns the full generated text.
      */
     async generate(systemPrompt, userPrompt) {
@@ -101,7 +119,7 @@ class BridgeClient {
                     'Content-Length': Buffer.byteLength(payload),
                     'X-Signature': signature
                 },
-                timeout: 60000
+                timeout: REQUEST_TIMEOUT_MS
             };
             const req = http.request(options, (res) => {
                 if (res.statusCode !== 200) {
@@ -150,7 +168,7 @@ class BridgeClient {
             });
             req.on('error', (err) => reject(err));
             req.on('timeout', () => {
-                req.destroy(new Error('Request timeout after 60s'));
+                req.destroy(new Error('Request timeout after 10 minutes — the model may be overloaded'));
             });
             req.write(payload);
             req.end();
@@ -188,7 +206,7 @@ class BridgeClient {
                 path: endpoint,
                 method: method,
                 headers: headers,
-                timeout: 60000
+                timeout: REQUEST_TIMEOUT_MS
             };
             const req = http.request(options, (res) => {
                 let resData = '';
@@ -210,7 +228,7 @@ class BridgeClient {
             });
             req.on('error', (err) => reject(err));
             req.on('timeout', () => {
-                req.destroy(new Error('Request timeout after 60s'));
+                req.destroy(new Error('Request timeout after 10 minutes — the model may be overloaded'));
             });
             if (body) {
                 req.write(body);

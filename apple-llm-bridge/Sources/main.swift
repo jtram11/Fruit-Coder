@@ -21,6 +21,14 @@ do {
     let httpServer = HTTPServer(port: serverPort, sessionSecret: secret, llmService: llmService, rateLimiter: rateLimiter)
     
     try await httpServer.start()
+
+    // 4. Pre-warm the Foundation Model immediately after the server starts.
+    //    This loads model weights into Neural Engine memory so they are resident
+    //    before the first user request arrives, eliminating cold-start latency.
+    Task {
+        await llmService.warmUp()
+        print("[+] Foundation Model pre-warm complete — Neural Engine ready.")
+    }
     
     // 4. Set up signal handlers for clean exit and token cleanup
     // C signal handler must be literal closures without capturing state.

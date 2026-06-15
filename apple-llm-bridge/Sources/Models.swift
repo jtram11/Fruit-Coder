@@ -45,12 +45,8 @@ public struct ErrorResponse: Codable, Sendable {
     }
 }
 
-public struct HealthResponse: Codable, Sendable {
+public struct SessionResetResponse: Codable, Sendable {
     public let status: String
-    public let modelAvailable: Bool
-
-    public init(status: String, modelAvailable: Bool) {
-        self.status = status
-        self.modelAvailable = modelAvailable
-    }
+    public init(status: String) { self.status = status }
 }
+

@@ -232,6 +232,14 @@ public actor HTTPServer {
                 sendErrorResponse(connection: connection, error: error.localizedDescription, status: 500)
             }
 
+        case (.post, "/api/session/reset"):
+            guard SecurityManager.verifySignature(body: request.body, signatureHeader: request.headers["x-signature"], hexSecret: sessionSecret) else {
+                sendErrorResponse(connection: connection, error: "Unauthorized: Invalid Signature", status: 401)
+                return
+            }
+            await llmService.resetSession()
+            sendJSONResponse(connection: connection, model: SessionResetResponse(status: "reset"), status: 200)
+
         case (.post, "/api/stream"):
             guard SecurityManager.verifySignature(body: request.body, signatureHeader: request.headers["x-signature"], hexSecret: sessionSecret) else {
                 sendErrorResponse(connection: connection, error: "Unauthorized: Invalid Signature", status: 401)
@@ -242,7 +250,8 @@ public actor HTTPServer {
                 let decoder = JSONDecoder()
                 let generateReq = try decoder.decode(GenerateRequest.self, from: request.body)
                 let stream = try await llmService.streamResponse(systemPrompt: generateReq.systemPrompt, userPrompt: generateReq.userPrompt)
-                
+
+                // Send SSE headers immediately so the client knows the connection is alive.
                 let sseHeaders = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n"
                 connection.send(content: sseHeaders.data(using: .utf8), completion: .contentProcessed({ error in
                     if let error = error {
@@ -251,37 +260,57 @@ public actor HTTPServer {
                     }
                 }))
 
-                var responseContent = ""
-                for try await chunk in stream {
-                    responseContent += chunk
-                    
-                    if responseContent.count > 1048576 {
-                        let errorChunk = StreamChunk(content: "\n[Error: Response size limit exceeded]", done: true)
-                        if let errorData = try? JSONEncoder().encode(errorChunk), let jsonStr = String(data: errorData, encoding: .utf8) {
-                            let sseData = "data: \(jsonStr)\n\n"
-                            connection.send(content: sseData.data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
-                        }
-                        return
-                    }
-
-                    let streamChunk = StreamChunk(content: chunk, done: false)
-                    if let jsonData = try? JSONEncoder().encode(streamChunk), let jsonStr = String(data: jsonData, encoding: .utf8) {
-                        let sseData = "data: \(jsonStr)\n\n"
-                        connection.send(content: sseData.data(using: .utf8), completion: .contentProcessed({ _ in }))
+                // Keepalive: send an SSE comment every 5 seconds while the model is
+                // generating. SSE comment lines (": ...") are silently ignored by the
+                // TypeScript client but keep the socket active, preventing the Node.js
+                // inactivity timeout from firing before the first real token arrives.
+                let keepAliveTask = Task<Void, Never> {
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 5_000_000_000)
+                        guard !Task.isCancelled else { break }
+                        connection.send(content: ": keep-alive\n\n".data(using: .utf8),
+                                        completion: .contentProcessed({ _ in }))
                     }
                 }
 
-                let doneChunk = StreamChunk(content: "", done: true)
-                if let jsonData = try? JSONEncoder().encode(doneChunk), let jsonStr = String(data: jsonData, encoding: .utf8) {
-                    let finalSSE = "data: \(jsonStr)\n\ndata: [DONE]\n\n"
-                    connection.send(content: finalSSE.data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
+                var responseContent = ""
+                do {
+                    for try await chunk in stream {
+                        responseContent += chunk
+
+                        if responseContent.count > 1048576 {
+                            keepAliveTask.cancel()
+                            let errorChunk = StreamChunk(content: "\n[Error: Response size limit exceeded]", done: true)
+                            if let errorData = try? JSONEncoder().encode(errorChunk), let jsonStr = String(data: errorData, encoding: .utf8) {
+                                connection.send(content: "data: \(jsonStr)\n\n".data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
+                            }
+                            return
+                        }
+
+                        let streamChunk = StreamChunk(content: chunk, done: false)
+                        if let jsonData = try? JSONEncoder().encode(streamChunk), let jsonStr = String(data: jsonData, encoding: .utf8) {
+                            connection.send(content: "data: \(jsonStr)\n\n".data(using: .utf8), completion: .contentProcessed({ _ in }))
+                        }
+                    }
+
+                    keepAliveTask.cancel()
+                    let doneChunk = StreamChunk(content: "", done: true)
+                    if let jsonData = try? JSONEncoder().encode(doneChunk), let jsonStr = String(data: jsonData, encoding: .utf8) {
+                        connection.send(content: "data: \(jsonStr)\n\ndata: [DONE]\n\n".data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
+                    }
+
+                } catch {
+                    keepAliveTask.cancel()
+                    let errorChunk = StreamChunk(content: "\n[Error: \(error.localizedDescription)]", done: true)
+                    if let errorData = try? JSONEncoder().encode(errorChunk), let jsonStr = String(data: errorData, encoding: .utf8) {
+                        connection.send(content: "data: \(jsonStr)\n\n".data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
+                    }
                 }
 
             } catch {
                 let errorChunk = StreamChunk(content: "\n[Error: \(error.localizedDescription)]", done: true)
                 if let errorData = try? JSONEncoder().encode(errorChunk), let jsonStr = String(data: errorData, encoding: .utf8) {
-                    let sseData = "data: \(jsonStr)\n\n"
-                    connection.send(content: sseData.data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
+                    connection.send(content: "data: \(jsonStr)\n\n".data(using: .utf8), isComplete: true, completion: .contentProcessed({ _ in }))
                 }
             }
 

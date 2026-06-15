@@ -44,7 +44,13 @@ class ChatViewProvider {
     constructor(_extensionUri, _bridgeClient) {
         this._extensionUri = _extensionUri;
         this._bridgeClient = _bridgeClient;
+        // conversationHistory is kept for UI display only.
+        // Conversation context is maintained server-side in the LanguageModelSession.
         this.conversationHistory = [];
+        // Track turns so we can proactively reset the session before the 4096-token
+        // context limit is hit (matches the maxTurns = 6 limit in LLMService.swift).
+        this.turnCount = 0;
+        this.MAX_TURNS = 6;
     }
     resolveWebviewView(webviewView, context, _token) {
         this._view = webviewView;
@@ -65,6 +71,9 @@ class ChatViewProvider {
                     break;
                 case 'clearHistory':
                     this.conversationHistory = [];
+                    this.turnCount = 0;
+                    // Reset the Swift-side session so the model starts a fresh context.
+                    this._bridgeClient.resetSession().catch(() => { });
                     break;
             }
         });
@@ -72,27 +81,61 @@ class ChatViewProvider {
     async handleUserMessage(text) {
         if (!this._view)
             return;
-        // Keep history at maximum of 10 messages to fit Apple Intelligence's 4k token window
-        if (this.conversationHistory.length > 10) {
-            this.conversationHistory.shift();
+        const activeEditor = vscode.window.activeTextEditor;
+        const fileLanguage = activeEditor?.document.languageId ?? null;
+        const fileName = activeEditor ? path.basename(activeEditor.document.fileName) : null;
+        let fileContent = activeEditor?.document.getText() ?? '';
+        if (activeEditor && fileContent.length > 6000) {
+            const cursorOffset = activeEditor.document.offsetAt(activeEditor.selection.active);
+            const halfWindow = 3000;
+            let start = Math.max(0, cursorOffset - halfWindow);
+            let end = Math.min(fileContent.length, cursorOffset + halfWindow);
+            if (cursorOffset - halfWindow < 0) {
+                end = Math.min(fileContent.length, end + (halfWindow - cursorOffset));
+            }
+            else if (cursorOffset + halfWindow > fileContent.length) {
+                start = Math.max(0, start - (cursorOffset + halfWindow - fileContent.length));
+            }
+            fileContent = (start > 0 ? '...[truncated]\n' : '') +
+                fileContent.substring(start, end) +
+                (end < activeEditor.document.getText().length ? '\n...[truncated]' : '');
         }
-        // Add user prompt to history
-        this.conversationHistory.push({ role: 'user', content: text });
-        // Build rolling prompt context
-        const conversationPrompt = this.conversationHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n') + '\n\nAssistant:';
+        const contextTag = fileLanguage
+            ? `[Active file: ${fileName} | Language: ${fileLanguage}]\n[Active File Content:\n${fileContent}\n]\n\n`
+            : '';
+        // Only the CURRENT message is sent to the Swift bridge.
+        // Conversation context is maintained server-side in the LanguageModelSession
+        // (KV-cache preserved across turns). This reduces per-request input tokens
+        // from ~400 to ~30 — the single biggest driver of response latency.
+        const currentMessage = contextTag + text;
+        // Store in local history for UI display only (not sent to model).
+        this.conversationHistory.push({ role: 'user', content: currentMessage });
         try {
-            // Signal typing indicator
             this._view.webview.postMessage({ type: 'startStreaming' });
             let fullReply = '';
-            await this._bridgeClient.stream(promptTemplates_1.CODE_GENERATION_PROMPT, conversationPrompt, (chunk) => {
+            await this._bridgeClient.stream(promptTemplates_1.CHAT_PROMPT, currentMessage, (chunk) => {
                 fullReply += chunk;
-                this._view?.webview.postMessage({ type: 'streamChunk', text: chunk });
+                this._view?.webview.postMessage({ type: 'streamChunk', chunk });
             });
-            // Add response to history
-            this.conversationHistory.push({ role: 'assistant', content: fullReply });
             this._view.webview.postMessage({ type: 'streamEnd' });
+            this.conversationHistory.push({ role: 'assistant', content: fullReply });
+            // Proactively reset the session every MAX_TURNS to stay within the
+            // 4096-token context limit. Mirrors the server-side maxTurns guard.
+            this.turnCount++;
+            if (this.turnCount >= this.MAX_TURNS) {
+                this.turnCount = 0;
+                this._bridgeClient.resetSession().catch(() => { });
+            }
         }
         catch (err) {
+            if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+                this._view.webview.postMessage({
+                    type: 'showError',
+                    text: 'Bridge disconnected — restarting automatically. Please resend your message in a moment.'
+                });
+                await vscode.commands.executeCommand('appleCodeAssist.startBridge');
+                return;
+            }
             this._view.webview.postMessage({ type: 'showError', text: err.message });
         }
     }

@@ -6,6 +6,8 @@ export declare class ChatViewProvider implements vscode.WebviewViewProvider {
     static readonly viewType = "appleCodeAssist.chatView";
     private _view?;
     private conversationHistory;
+    private turnCount;
+    private readonly MAX_TURNS;
     constructor(_extensionUri: vscode.Uri, _bridgeClient: BridgeClient);
     resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void;
     private handleUserMessage;

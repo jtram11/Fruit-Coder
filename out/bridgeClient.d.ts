@@ -11,6 +11,11 @@ export declare class BridgeClient {
      */
     isHealthy(): Promise<boolean>;
     /**
+     * Resets the Swift-side LanguageModelSession. Call when the user clears chat
+     * so the next request starts with a clean conversation context.
+     */
+    resetSession(): Promise<void>;
+    /**
      * Sends a generation request and returns the full generated text.
      */
     generate(systemPrompt: string, userPrompt: string): Promise<string>;
