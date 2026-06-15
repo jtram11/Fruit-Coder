@@ -2,7 +2,7 @@
   "name": "apple-code-assist",
   "displayName": "Apple Intelligence Code Assistant",
   "description": "AI code assistant powered by Apple's on-device Foundation Models",
-  "version": "0.1.0",
+  "version": "0.3.8",
   "publisher": "apple-code-assist",
   "license": "MIT",
   "engines": {
