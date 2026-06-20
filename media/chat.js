@@ -9,9 +9,18 @@
     const promptInput = document.getElementById('prompt-input');
     const sendButton = document.getElementById('send-button');
     const typingIndicator = document.getElementById('typing-indicator');
+    const turnCounter = document.getElementById('turn-counter');
+    const modeSelect = document.getElementById('mode-select');
+    const languageSelect = document.getElementById('language-select');
 
     let currentBotBubble = null;
     let currentBotContent = '';
+
+    function updateTurnCounter(count) {
+        if (turnCounter) {
+            turnCounter.textContent = `Turn ${count}/6`;
+        }
+    }
 
     // Shared HTML-escape utility used by both the structured renderer and formatMarkdown.
     function escapeHtml(unsafe) {
@@ -44,11 +53,36 @@
         appendMessageBubble('user', text);
         
         // Post message to extension process
-        vscode.postMessage({ type: 'sendMessage', text });
+        vscode.postMessage({
+            type: 'sendMessage',
+            text: text,
+            mode: modeSelect ? modeSelect.value : 'chat',
+            language: languageSelect ? languageSelect.value : 'auto'
+        });
         
         // Reset inputs
         promptInput.value = '';
         scrollToBottom();
+    }
+
+    if (modeSelect) {
+        modeSelect.addEventListener('change', () => {
+            vscode.postMessage({
+                type: 'updateSettings',
+                mode: modeSelect.value,
+                language: languageSelect ? languageSelect.value : 'auto'
+            });
+        });
+    }
+
+    if (languageSelect) {
+        languageSelect.addEventListener('change', () => {
+            vscode.postMessage({
+                type: 'updateSettings',
+                mode: modeSelect ? modeSelect.value : 'chat',
+                language: languageSelect.value
+            });
+        });
     }
 
     function appendMessageBubble(role, content) {
@@ -81,6 +115,40 @@
         const message = event.data;
         
         switch (message.type) {
+            case 'addUserMessage':
+                appendMessageBubble('user', message.text);
+                break;
+
+            case 'updateTurnCount':
+                updateTurnCounter(message.turnCount);
+                break;
+
+            case 'restoreHistory': {
+                messagesList.innerHTML = '';
+                const greetingBubble = document.createElement('div');
+                greetingBubble.className = 'message-bubble assistant';
+                greetingBubble.innerHTML = `
+                    <span class="message-sender">Assistant</span>
+                    <div class="message-content">Hello! I'm your local Apple Intelligence code assistant. How can I help you write or fix your code today?</div>
+                `;
+                messagesList.appendChild(greetingBubble);
+
+                if (message.history && message.history.length > 0) {
+                    message.history.forEach(msg => {
+                        appendMessageBubble(msg.role, msg.content);
+                    });
+                }
+                updateTurnCounter(message.turnCount);
+                if (message.mode && modeSelect) {
+                    modeSelect.value = message.mode;
+                }
+                if (message.language && languageSelect) {
+                    languageSelect.value = message.language;
+                }
+                scrollToBottom();
+                break;
+            }
+
             case 'startStreaming':
                 showTypingIndicator();
                 currentBotContent = '';
@@ -249,4 +317,7 @@
 
         return formattedLines.join('');
     }
+
+    // Signal to the extension that the webview is ready
+    vscode.postMessage({ type: 'ready' });
 })();

@@ -11,7 +11,8 @@
     <div id="chat-container">
         <div class="info-header">
             <span> On-Device Foundation Model</span>
-            <div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <span id="turn-counter" style="opacity: 0.8; font-weight: 500; margin-right: 4px;">Turn 0/6</span>
                 <span class="status-indicator"></span>
                 <span>Active</span>
             </div>
@@ -36,6 +37,29 @@
 
         <!-- Input Area controls -->
         <div id="input-form">
+            <div class="controls-row">
+                <div class="control-group">
+                    <label for="mode-select">Mode</label>
+                    <select id="mode-select">
+                        <option value="chat" selected>Chat</option>
+                        <option value="generate">Generate</option>
+                        <option value="debug">Debug</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="language-select">Language Override</label>
+                    <select id="language-select">
+                        <option value="auto" selected>Auto (Infer)</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="cpp">C++</option>
+                        <option value="swift">Swift</option>
+                    </select>
+                </div>
+            </div>
             <div class="textarea-wrapper">
                 <textarea id="prompt-input" placeholder="Ask local Apple LLM... (Cmd+Enter to send)"></textarea>
                 <button id="send-button" class="send-btn" title="Send Message">

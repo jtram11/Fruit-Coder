@@ -3,8 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { BridgeClient } from './bridgeClient';
 import { generateNonce, getContentSecurityPolicy } from './security';
-import { applyCodeWithConfirmation } from './codeActions';
-import { CHAT_PROMPT } from './promptTemplates';
+import { showDiffPreview, insertCodeAtCursor, replaceSelection } from './codeActions';
+import { CHAT_PROMPT, CODE_GENERATION_PROMPT, ERROR_ANALYSIS_PROMPT } from './promptTemplates';
 
 
 
@@ -18,11 +18,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // context limit is hit (matches the maxTurns = 6 limit in LLMService.swift).
     private turnCount = 0;
     private readonly MAX_TURNS = 6;
+    private selectedMode = 'chat';
+    private selectedLanguage = 'auto';
 
     constructor(
-        private readonly _extensionUri: vscode.Uri,
+        private readonly _context: vscode.ExtensionContext,
         private readonly _bridgeClient: BridgeClient
-    ) {}
+    ) {
+        this.conversationHistory = this._context.workspaceState.get<{ role: 'user' | 'assistant', content: string }[]>('appleCodeAssist.conversationHistory', []);
+        this.turnCount = this._context.workspaceState.get<number>('appleCodeAssist.turnCount', 0);
+        this.selectedMode = this._context.workspaceState.get<string>('appleCodeAssist.selectedMode', 'chat');
+        this.selectedLanguage = this._context.workspaceState.get<string>('appleCodeAssist.selectedLanguage', 'auto');
+    }
+
+    private saveState() {
+        this._context.workspaceState.update('appleCodeAssist.conversationHistory', this.conversationHistory);
+        this._context.workspaceState.update('appleCodeAssist.turnCount', this.turnCount);
+        this._context.workspaceState.update('appleCodeAssist.selectedMode', this.selectedMode);
+        this._context.workspaceState.update('appleCodeAssist.selectedLanguage', this.selectedLanguage);
+    }
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
@@ -34,7 +48,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [
-                this._extensionUri
+                this._context.extensionUri
             ]
         };
 
@@ -42,8 +56,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.onDidReceiveMessage(async (data) => {
             switch (data.type) {
+                case 'ready':
+                    this._view?.webview.postMessage({
+                        type: 'restoreHistory',
+                        history: this.conversationHistory,
+                        turnCount: this.turnCount,
+                        mode: this.selectedMode,
+                        language: this.selectedLanguage
+                    });
+                    break;
                 case 'sendMessage':
+                    this.selectedMode = data.mode || 'chat';
+                    this.selectedLanguage = data.language || 'auto';
+                    this.saveState();
                     await this.handleUserMessage(data.text);
+                    break;
+                case 'updateSettings':
+                    this.selectedMode = data.mode || 'chat';
+                    this.selectedLanguage = data.language || 'auto';
+                    this.saveState();
                     break;
                 case 'applyCode':
                     await this.handleApplyCode(data.code);
@@ -51,6 +82,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 case 'clearHistory':
                     this.conversationHistory = [];
                     this.turnCount = 0;
+                    this.saveState();
+                    this._view?.webview.postMessage({ type: 'updateTurnCount', turnCount: 0 });
                     // Reset the Swift-side session so the model starts a fresh context.
                     this._bridgeClient.resetSession().catch(() => {});
                     break;
@@ -62,7 +95,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         if (!this._view) return;
 
         const activeEditor = vscode.window.activeTextEditor;
-        const fileLanguage = activeEditor?.document.languageId ?? null;
+        let fileLanguage = activeEditor?.document.languageId ?? null;
+        if (this.selectedLanguage && this.selectedLanguage !== 'auto') {
+            fileLanguage = this.selectedLanguage;
+        }
         const fileName     = activeEditor ? path.basename(activeEditor.document.fileName) : null;
         
         let fileContent = activeEditor?.document.getText() ?? '';
@@ -84,24 +120,28 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
 
         const contextTag   = fileLanguage
-            ? `[Active file: ${fileName} | Language: ${fileLanguage}]\n[Active File Content:\n${fileContent}\n]\n\n`
+            ? `[Active file: ${fileName ?? 'None'} | Language: ${fileLanguage}]\n` + (fileContent ? `[Active File Content:\n${fileContent}\n]\n\n` : '\n')
             : '';
 
         // Only the CURRENT message is sent to the Swift bridge.
-        // Conversation context is maintained server-side in the LanguageModelSession
-        // (KV-cache preserved across turns). This reduces per-request input tokens
-        // from ~400 to ~30 — the single biggest driver of response latency.
         const currentMessage = contextTag + text;
 
         // Store in local history for UI display only (not sent to model).
-        this.conversationHistory.push({ role: 'user', content: currentMessage });
+        this.conversationHistory.push({ role: 'user', content: text });
 
         try {
             this._view.webview.postMessage({ type: 'startStreaming' });
 
+            let systemPrompt = CHAT_PROMPT;
+            if (this.selectedMode === 'generate') {
+                systemPrompt = CODE_GENERATION_PROMPT;
+            } else if (this.selectedMode === 'debug') {
+                systemPrompt = ERROR_ANALYSIS_PROMPT;
+            }
+
             let fullReply = '';
             await this._bridgeClient.stream(
-                CHAT_PROMPT,
+                systemPrompt,
                 currentMessage,
                 (chunk) => {
                     fullReply += chunk;
@@ -120,6 +160,61 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 this.turnCount = 0;
                 this._bridgeClient.resetSession().catch(() => {});
             }
+            this.saveState();
+            this._view.webview.postMessage({ type: 'updateTurnCount', turnCount: this.turnCount });
+
+        } catch (err: any) {
+            if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+                this._view.webview.postMessage({
+                    type: 'showError',
+                    text: 'Bridge disconnected — restarting automatically. Please resend your message in a moment.'
+                });
+                await vscode.commands.executeCommand('appleCodeAssist.startBridge');
+                return;
+            }
+            this._view.webview.postMessage({ type: 'showError', text: err.message });
+        }
+    }
+
+    public async sendContextualPrompt(prompt: string, code: string, language: string, systemPrompt: string = CHAT_PROMPT) {
+        if (!this._view) {
+            await vscode.commands.executeCommand('appleCodeAssist.openChat');
+            for (let i = 0; i < 10; i++) {
+                if (this._view) break;
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        if (!this._view) return;
+
+        const contextTag = `[Language: ${language}]\n[Selected Code:\n${code}\n]\n\n`;
+        const currentMessage = contextTag + prompt;
+
+        this._view.webview.postMessage({ type: 'addUserMessage', text: prompt });
+        this.conversationHistory.push({ role: 'user', content: prompt });
+
+        try {
+            this._view.webview.postMessage({ type: 'startStreaming' });
+
+            let fullReply = '';
+            await this._bridgeClient.stream(
+                systemPrompt,
+                currentMessage,
+                (chunk) => {
+                    fullReply += chunk;
+                    this._view?.webview.postMessage({ type: 'streamChunk', chunk });
+                }
+            );
+
+            this._view.webview.postMessage({ type: 'streamEnd' });
+            this.conversationHistory.push({ role: 'assistant', content: fullReply });
+
+            this.turnCount++;
+            if (this.turnCount >= this.MAX_TURNS) {
+                this.turnCount = 0;
+                this._bridgeClient.resetSession().catch(() => {});
+            }
+            this.saveState();
+            this._view.webview.postMessage({ type: 'updateTurnCount', turnCount: this.turnCount });
 
         } catch (err: any) {
             if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
@@ -143,10 +238,31 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         const isSelectionEmpty = editor.selection.isEmpty;
         const action = isSelectionEmpty ? 'insert' : 'replace';
-        
-        const success = await applyCodeWithConfirmation(editor, code, action);
-        if (success) {
-            vscode.window.showInformationMessage('Code applied successfully.');
+        const originalContent = isSelectionEmpty ? '' : editor.document.getText(editor.selection);
+
+        // Show diff preview
+        await showDiffPreview(originalContent, code, path.basename(editor.document.fileName));
+
+        const choice = await vscode.window.showWarningMessage(
+            'Apply AI-generated code change to active file?',
+            { modal: true },
+            'Yes, Apply Change',
+            'No, Cancel'
+        );
+
+        if (choice === 'Yes, Apply Change') {
+            let success = false;
+            if (action === 'insert') {
+                success = await insertCodeAtCursor(editor, code);
+            } else {
+                success = await replaceSelection(editor, code);
+            }
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+            if (success) {
+                vscode.window.showInformationMessage('Code applied successfully.');
+            }
+        } else {
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
         }
     }
 
@@ -154,11 +270,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const nonce = generateNonce();
         
         // URIs for style and javascript assets
-        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'chat.css'));
-        const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'chat.js'));
+        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'chat.css'));
+        const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'chat.js'));
         const cspStr = getContentSecurityPolicy(webview, nonce);
 
-        const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'chat.html');
+        const htmlPath = path.join(this._context.extensionUri.fsPath, 'media', 'chat.html');
         let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
         // Replace templates placeholders

@@ -52,7 +52,12 @@ with open("data.txt", "r") as f:
     content = f.read()
 \`\`\``;
 exports.CODE_EXPLANATION_PROMPT = `You are an expert programmer. Explain the provided code concisely.
-Identify key functions, explain the overall control flow, and highlight any potential bugs or security flaws in a short list.`;
+Identify key functions, explain the overall control flow, and highlight any potential bugs or security flaws in a short list.
+
+CRITICAL INSTRUCTIONS:
+1. Do NOT output a "### Code" section under any circumstances.
+2. Do NOT output markdown code blocks containing code to be applied. If you need to refer to code structures, use inline code formatting.
+3. This is an explanation command; do not trigger the code-apply interface by writing a code block.`;
 /**
  * Builds the code generation prompt with surrounding file context.
  */

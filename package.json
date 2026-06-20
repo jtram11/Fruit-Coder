@@ -2,7 +2,7 @@
   "name": "apple-code-assist",
   "displayName": "Apple Intelligence Code Assistant",
   "description": "AI code assistant powered by Apple's on-device Foundation Models",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "publisher": "apple-code-assist",
   "license": "MIT",
   "engines": {
@@ -47,6 +47,26 @@
         "title": "Stop Bridge Server",
         "category": "Apple Code Assist",
         "icon": "$(debug-stop)"
+      },
+      {
+        "command": "appleCodeAssist.explainCode",
+        "title": "Explain this",
+        "category": "Apple Code Assist"
+      },
+      {
+        "command": "appleCodeAssist.refactorCode",
+        "title": "Refactor this",
+        "category": "Apple Code Assist"
+      },
+      {
+        "command": "appleCodeAssist.addDocstring",
+        "title": "Add a docstring",
+        "category": "Apple Code Assist"
+      },
+      {
+        "command": "appleCodeAssist.writeUnitTest",
+        "title": "Write a unit test for this",
+        "category": "Apple Code Assist"
       }
     ],
     "keybindings": [
@@ -61,8 +81,43 @@
         "key": "cmd+shift+e",
         "mac": "cmd+shift+e",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "appleCodeAssist.explainCode",
+        "key": "cmd+shift+x",
+        "mac": "cmd+shift+x",
+        "when": "editorHasSelection"
       }
     ],
+    "submenus": [
+      {
+        "id": "appleCodeAssist.askFruitCoder",
+        "label": "Ask Fruit Coder…"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "appleCodeAssist.askFruitCoder",
+          "group": "navigation",
+          "when": "editorHasSelection"
+        }
+      ],
+      "appleCodeAssist.askFruitCoder": [
+        {
+          "command": "appleCodeAssist.explainCode"
+        },
+        {
+          "command": "appleCodeAssist.refactorCode"
+        },
+        {
+          "command": "appleCodeAssist.addDocstring"
+        },
+        {
+          "command": "appleCodeAssist.writeUnitTest"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {

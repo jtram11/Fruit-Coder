@@ -172,6 +172,45 @@ pre:hover .apply-code-btn {
     background: var(--vscode-button-hoverBackground, #0062a3);
 }
 
+/* Controls Bar inside Input Form */
+.controls-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.control-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.control-group label {
+    font-size: 9px;
+    text-transform: uppercase;
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    color: var(--vscode-foreground, #cccccc);
+}
+
+.control-group select {
+    background-color: var(--vscode-dropdown-background, #252526);
+    color: var(--vscode-dropdown-foreground, #cccccc);
+    border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.control-group select:focus {
+    border-color: var(--vscode-focusBorder, #007acc);
+}
+
 /* Input Form Controls at Bottom */
 #input-form {
     padding: 12px;

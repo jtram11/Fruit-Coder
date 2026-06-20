@@ -1,5 +1,36 @@
 # Release Notes - Apple Intelligence Code Assistant
 
+## Version 0.4.0
+
+This release introduces native editor integrations, improved workspace lifecycle management, persistent history, and enhanced interactive controls.
+
+### Key Features & Enhancements
+
+*   **Inline Code Actions (Right-Click Submenu)**:
+    *   Right-click a selection in the editor to access the new "Ask Fruit Coder…" submenu.
+    *   Common quick actions — "Explain this", "Refactor this", "Add a docstring", and "Write a unit test for this" — are now accessible natively.
+    *   Mapped a keyboard shortcut `Cmd+Shift+X` directly to the "Explain this" command for selected code.
+
+*   **Inline Diff Preview Before Apply**:
+    *   Clicking "Apply to File" on code blocks now automatically opens a side-by-side diff comparison comparing original content with proposed code.
+    *   Displays a warning confirmation modal to let developers inspect changes before committing them, automatically closing the diff tab upon choice.
+
+*   **Persistent Chat History**:
+    *   Saves active conversation logs, turn counts, chosen modes, and language overrides directly to the workspace state storage (`workspaceState`).
+    *   Conversations are restored seamlessly across window reloads, side panel closes, or IDE restarts.
+
+*   **Turn Counter Display**:
+    *   Surfaced a Turn Counter (e.g. "Turn 3/6") in the panel header to clearly inform developers of remaining turns before context recycler resets.
+
+*   **Multiple Named Modes**:
+    *   Provides a dropdown in the panel to switch between "Chat", "Generate", and "Debug" mode, dynamically choosing the correct prompt personality.
+
+*   **Language Override Toggle**:
+    *   Adds a dropdown selection to manually override language inference, forcing the local model to write and format snippets in the selected language.
+
+*   **Silent Auto-Start Bridge**:
+    *   Refactored the Swift bridge startup sequence to fail silently to the status bar on automatic workspace load if the server binary is missing, eliminating intrusive modal dialogs.
+
 ## Version 0.3.8
 
 This release focuses on improving the stability of local model inference, enhancing UI styling/rendering robustness, and optimizing text editor context extraction.
